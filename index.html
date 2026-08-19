@@ -1,0 +1,807 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
+<title>SIGINT-9 Safe Web Inspector</title>
+
+<style>
+:root{
+  --bg:#050914;
+  --panel:#0b1220;
+  --panel2:#111a2c;
+  --line:#20304a;
+  --text:#edf4ff;
+  --muted:#91a0bd;
+  --cyan:#00e5ff;
+  --green:#00ffad;
+  --yellow:#ffb52e;
+  --red:#ff4264;
+}
+
+*{
+  box-sizing:border-box;
+}
+
+body{
+  margin:0;
+  background:
+    radial-gradient(
+      circle at top,
+      #101d35,
+      var(--bg) 55%
+    );
+  color:var(--text);
+  font-family:Arial,sans-serif;
+  min-height:100vh;
+}
+
+.wrap{
+  width:min(1050px,calc(100% - 28px));
+  margin:auto;
+}
+
+header{
+  padding:45px 0 30px;
+}
+
+.brand{
+  color:var(--green);
+  font:700 13px monospace;
+  letter-spacing:.12em;
+  margin-bottom:18px;
+}
+
+h1{
+  font:900 clamp(34px,8vw,64px)/1 monospace;
+  margin:0 0 20px;
+}
+
+h1 span{
+  color:var(--cyan);
+}
+
+.lead{
+  color:var(--muted);
+  max-width:700px;
+  line-height:1.8;
+}
+
+.panel{
+  background:rgba(11,18,32,.9);
+  border:1px solid var(--line);
+  border-radius:18px;
+  padding:20px;
+  box-shadow:0 20px 70px rgba(0,0,0,.35);
+}
+
+.input-row{
+  display:flex;
+  gap:10px;
+}
+
+input{
+  flex:1;
+  min-width:0;
+  background:#050914;
+  color:white;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:16px;
+  font:14px monospace;
+  outline:none;
+}
+
+input:focus{
+  border-color:var(--cyan);
+}
+
+button{
+  border:0;
+  border-radius:10px;
+  padding:15px 20px;
+  cursor:pointer;
+  font:800 12px monospace;
+}
+
+.scan{
+  background:var(--cyan);
+  color:#001014;
+}
+
+button:disabled{
+  opacity:.5;
+}
+
+.status{
+  margin-top:18px;
+  color:var(--muted);
+  font:12px monospace;
+}
+
+.status.ok{
+  color:var(--green);
+}
+
+.status.err{
+  color:var(--red);
+}
+
+.result{
+  margin-top:20px;
+  display:none;
+}
+
+.verdict{
+  border:1px solid var(--line);
+  background:var(--panel2);
+  border-radius:15px;
+  padding:20px;
+}
+
+.verdict-head{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  gap:15px;
+}
+
+.verdict-name{
+  font:900 27px monospace;
+}
+
+.score{
+  font:900 35px monospace;
+}
+
+.low{
+  color:var(--green);
+}
+
+.suspicious{
+  color:var(--yellow);
+}
+
+.high{
+  color:var(--red);
+}
+
+.target{
+  margin-top:10px;
+  color:var(--muted);
+  word-break:break-all;
+  font:12px monospace;
+}
+
+.stats{
+  display:grid;
+  grid-template-columns:
+    repeat(auto-fit,minmax(130px,1fr));
+  gap:10px;
+  margin-top:15px;
+}
+
+.stat{
+  background:#0a1323;
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:14px;
+}
+
+.stat b{
+  display:block;
+  font:700 20px monospace;
+  color:var(--cyan);
+}
+
+.stat span{
+  color:var(--muted);
+  font-size:11px;
+}
+
+.section{
+  margin-top:25px;
+}
+
+.section h2{
+  font:800 15px monospace;
+  margin-bottom:12px;
+}
+
+.finding{
+  border:1px solid var(--line);
+  border-radius:10px;
+  padding:14px;
+  margin-bottom:9px;
+  background:#091323;
+}
+
+.finding-top{
+  display:flex;
+  justify-content:space-between;
+  gap:10px;
+}
+
+.finding-title{
+  font:800 13px monospace;
+}
+
+.badge{
+  font:800 10px monospace;
+}
+
+.finding-detail{
+  margin-top:7px;
+  color:var(--muted);
+  line-height:1.6;
+  font-size:12px;
+}
+
+.points{
+  color:var(--red);
+}
+
+.domain{
+  padding:9px 11px;
+  margin:5px 0;
+  border:1px solid var(--line);
+  border-radius:7px;
+  background:#07101d;
+  font:11px monospace;
+  word-break:break-all;
+}
+
+.redirect{
+  padding:12px;
+  border-left:3px solid var(--yellow);
+  background:#0d1524;
+  margin-bottom:7px;
+  font:11px monospace;
+  word-break:break-all;
+}
+
+.note{
+  margin-top:20px;
+  color:#7585a3;
+  font-size:11px;
+  line-height:1.7;
+}
+
+footer{
+  padding:40px 0;
+  text-align:center;
+  color:#53617b;
+  font:10px monospace;
+}
+
+@media(max-width:650px){
+  .input-row{
+    flex-direction:column;
+  }
+
+  .verdict-head{
+    align-items:flex-start;
+    flex-direction:column;
+  }
+}
+</style>
+</head>
+
+<body>
+
+<div class="wrap">
+
+<header>
+
+<div class="brand">
+● SIGINT-9 // SAFE WEB INSPECTOR
+</div>
+
+<h1>
+ANALISIS <span>WEBSITE</span>
+</h1>
+
+<p class="lead">
+Masukkan URL untuk mengambil dan menganalisis
+HTML halaman secara read-only. JavaScript dan
+form situs target tidak dijalankan.
+</p>
+
+</header>
+
+<div class="panel">
+
+<div class="input-row">
+
+<input
+id="url"
+type="text"
+placeholder="https://example.com"
+autocomplete="off"
+>
+
+<button
+class="scan"
+id="scanButton"
+onclick="scan()"
+>
+🔎 SCAN WEBSITE
+</button>
+
+</div>
+
+<div
+id="status"
+class="status"
+>
+Siap melakukan pemeriksaan.
+</div>
+
+<div
+id="result"
+class="result"
+></div>
+
+</div>
+
+<footer>
+SIGINT-9 SAFE WEB INSPECTOR<br>
+READ-ONLY HTML ANALYSIS · EDUCATIONAL TOOL
+</footer>
+
+</div>
+
+<script>
+
+const $ = id =>
+  document.getElementById(id);
+
+function escapeHTML(value){
+
+  return String(value ?? "")
+    .replace(/&/g,"&amp;")
+    .replace(/</g,"&lt;")
+    .replace(/>/g,"&gt;")
+    .replace(/"/g,"&quot;")
+    .replace(/'/g,"&#039;");
+
+}
+
+function setStatus(text,type=""){
+
+  $("status").textContent = text;
+
+  $("status").className =
+    "status " + type;
+
+}
+
+async function scan(){
+
+  let target =
+    $("url").value.trim();
+
+  if(!target){
+
+    setStatus(
+      "Masukkan URL terlebih dahulu.",
+      "err"
+    );
+
+    return;
+  }
+
+  if(
+    !/^https?:\/\//i.test(target)
+  ){
+    target =
+      "https://" + target;
+  }
+
+  $("scanButton").disabled = true;
+
+  $("result").style.display =
+    "none";
+
+  setStatus(
+    "⏳ Mengambil HTML secara read-only..."
+  );
+
+  try{
+
+    const response =
+      await fetch(
+        "/api/scan?url=" +
+        encodeURIComponent(target)
+      );
+
+    const data =
+      await response.json();
+
+    if(!response.ok){
+
+      throw new Error(
+        data.error ||
+        "Scan gagal."
+      );
+
+    }
+
+    render(data);
+
+    setStatus(
+      "✓ Analisis selesai.",
+      "ok"
+    );
+
+  }catch(error){
+
+    setStatus(
+      "✕ " + error.message,
+      "err"
+    );
+
+  }finally{
+
+    $("scanButton").disabled =
+      false;
+
+  }
+}
+
+function verdictClass(verdict){
+
+  if(verdict === "HIGH RISK")
+    return "high";
+
+  if(verdict === "SUSPICIOUS")
+    return "suspicious";
+
+  return "low";
+
+}
+
+function render(data){
+
+  const result =
+    $("result");
+
+  result.style.display =
+    "block";
+
+  const cls =
+    verdictClass(
+      data.verdict
+    );
+
+  let html = `
+
+<div class="verdict">
+
+<div class="verdict-head">
+
+<div>
+
+<div class="verdict-name ${cls}">
+${escapeHTML(data.verdict)}
+</div>
+
+<div class="target">
+URL awal:<br>
+${escapeHTML(data.target)}
+
+<br><br>
+
+URL akhir:<br>
+${escapeHTML(data.finalURL)}
+</div>
+
+</div>
+
+<div class="score ${cls}">
+${data.score}/100
+</div>
+
+</div>
+
+`;
+
+  if(data.title){
+
+    html += `
+
+<div class="section">
+
+<h2>PAGE TITLE</h2>
+
+<div class="target">
+${escapeHTML(data.title)}
+</div>
+
+</div>
+
+`;
+
+  }
+
+  html += `
+
+<div class="stats">
+
+<div class="stat">
+<b>${data.statistics.forms}</b>
+<span>FORMS</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.passwordFields}</b>
+<span>PASSWORD</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.emailFields}</b>
+<span>EMAIL</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.scripts}</b>
+<span>SCRIPTS</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.iframes}</b>
+<span>IFRAMES</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.externalDomains}</b>
+<span>EXT DOMAINS</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.externalURLs}</b>
+<span>EXT URLS</span>
+</div>
+
+<div class="stat">
+<b>${data.statistics.findings}</b>
+<span>FINDINGS</span>
+</div>
+
+</div>
+
+`;
+
+  /*
+  FINDINGS
+  */
+
+  if(
+    data.findings &&
+    data.findings.length
+  ){
+
+    html += `
+
+<div class="section">
+
+<h2>⚠ DETECTION FINDINGS</h2>
+`;
+
+    for(
+      const finding of data.findings
+    ){
+
+      let badgeClass =
+        finding.severity === "HIGH"
+        ? "high"
+        : finding.severity === "MEDIUM"
+        ? "suspicious"
+        : "low";
+
+      html += `
+
+<div class="finding">
+
+<div class="finding-top">
+
+<div class="finding-title">
+${escapeHTML(finding.title)}
+</div>
+
+<div class="badge ${badgeClass}">
+${escapeHTML(finding.severity)}
+</div>
+
+</div>
+
+<div class="finding-detail">
+${escapeHTML(finding.detail)}
+</div>
+
+<div class="points">
++${finding.points} risk points
+</div>
+
+</div>
+
+`;
+
+    }
+
+    html += `</div>`;
+
+  }else{
+
+    html += `
+
+<div class="section">
+
+<h2>✓ NO SIGNIFICANT FINDINGS</h2>
+
+<div class="finding">
+
+<div class="finding-detail">
+Tidak ditemukan indikator signifikan
+dari pemeriksaan HTML yang dilakukan.
+</div>
+
+</div>
+
+</div>
+
+`;
+
+  }
+
+  /*
+  REDIRECT CHAIN
+  */
+
+  if(
+    data.redirectChain &&
+    data.redirectChain.length
+  ){
+
+    html += `
+
+<div class="section">
+
+<h2>↪ REDIRECT CHAIN</h2>
+`;
+
+    for(
+      const item of data.redirectChain
+    ){
+
+      html += `
+
+<div class="redirect">
+
+HTTP ${item.status}<br><br>
+
+${escapeHTML(item.from)}
+
+<br>
+↓
+<br>
+
+${escapeHTML(item.to)}
+
+</div>
+
+`;
+
+    }
+
+    html += `</div>`;
+
+  }
+
+  /*
+  EXTERNAL DOMAINS
+  */
+
+  if(
+    data.externalDomains &&
+    data.externalDomains.length
+  ){
+
+    html += `
+
+<div class="section">
+
+<h2>🌐 EXTERNAL DOMAINS</h2>
+`;
+
+    for(
+      const domain
+      of data.externalDomains
+    ){
+
+      html += `
+
+<div class="domain">
+${escapeHTML(domain)}
+</div>
+
+`;
+
+    }
+
+    html += `</div>`;
+
+  }
+
+  /*
+  SERVER INFO
+  */
+
+  html += `
+
+<div class="section">
+
+<h2>SERVER INFORMATION</h2>
+
+<div class="target">
+
+HTTP status:
+${escapeHTML(data.httpStatus)}
+
+<br><br>
+
+Content-Type:
+${escapeHTML(
+  data.serverHeaders?.contentType ||
+  data.contentType ||
+  "unknown"
+)}
+
+</div>
+
+</div>
+
+<div class="note">
+
+⚠ HASIL INI BUKAN JAMINAN WEBSITE AMAN.
+
+Scanner melakukan pemeriksaan statis terhadap
+HTML yang berhasil diambil. JavaScript target,
+form target, dan aksi browser target tidak
+dijalankan.
+
+Website phishing yang sangat canggih dapat
+menghindari deteksi heuristik.
+
+Jangan memasukkan password, OTP, seed phrase,
+nomor kartu, atau data pribadi ke website yang
+masih diragukan.
+
+</div>
+
+</div>
+
+`;
+
+  result.innerHTML =
+    html;
+
+}
+
+$("url").addEventListener(
+  "keydown",
+  event => {
+
+    if(event.key === "Enter"){
+      scan();
+    }
+
+  }
+);
+
+</script>
+
+</body>
+</html>
